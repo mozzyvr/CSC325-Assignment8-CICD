@@ -4,12 +4,16 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
-# Use the activated environment, or the repository's default virtual environment.
-verification_python="${VIRTUAL_ENV:-$repo_root/.venv}/bin/python"
-if [[ ! -x "$verification_python" ]]; then
-    echo "Activate a Python 3.14 virtual environment or create .venv first." >&2
+# CI supplies VERIFY_PYTHON; locally prefer an active environment or .venv.
+verification_python="${VERIFY_PYTHON:-${VIRTUAL_ENV:-$repo_root/.venv}/bin/python}"
+if ! verification_python="$(command -v -- "$verification_python")"; then
+    echo "Set VERIFY_PYTHON to a Python 3.14 executable, activate a virtual environment, or create .venv." >&2
     echo "Then install dependencies with: python -m pip install -r requirements.txt" >&2
     exit 1
+fi
+# Resolve relative executable paths before changing into backend/.
+if [[ "$verification_python" != /* ]]; then
+    verification_python="$repo_root/$verification_python"
 fi
 
 "$verification_python" -m pip check
@@ -19,7 +23,7 @@ fi
 cd backend
 "$verification_python" manage.py check
 
-# Match CI's minimum-test guard so an empty suite cannot report success locally.
+# Require the assignment's minimum test count in both local and CI runs.
 "$verification_python" - <<'PY'
 import os
 
@@ -36,4 +40,4 @@ if count < 2:
 PY
 
 "$verification_python" manage.py test --noinput --verbosity 2
-echo "Local verification passed."
+echo "Verification passed."
