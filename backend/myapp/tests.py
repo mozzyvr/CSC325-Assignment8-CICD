@@ -1,3 +1,31 @@
-from django.test import TestCase
+from django.test import SimpleTestCase
+from django.urls import reverse
 
-# Create your tests here.
+
+class PageTests(SimpleTestCase):
+    """Exercise the public pages through Django's URL routing and test client."""
+
+    def test_home_returns_html_with_welcome_message(self):
+        self.assertEqual(reverse("home"), "/")
+
+        response = self.client.get("/")
+
+        self.assertContains(response, "<h1>Hello World!</h1>", html=True)
+        self.assertContains(
+            response, "Welcome to the home page of our Django application."
+        )
+        self.assertEqual(response.headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_about_returns_html_with_page_description(self):
+        self.assertEqual(reverse("about"), "/about/")
+
+        response = self.client.get("/about/")
+
+        self.assertContains(response, "<h1>This is the About Page.</h1>", html=True)
+        self.assertContains(response, "This is the about page of our application.")
+        self.assertEqual(response.headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_unknown_page_returns_not_found(self):
+        response = self.client.get("/page-that-does-not-exist/")
+
+        self.assertEqual(response.status_code, 404)
