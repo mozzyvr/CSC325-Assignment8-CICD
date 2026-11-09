@@ -1,0 +1,82 @@
+name: CSC325 CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          # Match local Python; installed Django requires Python >= 3.12.
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip check
+
+      - name: Lint (Ruff)
+        run: python -m ruff check --config ruff.toml backend
+
+      - name: Security scan (Bandit)
+        # Scan application code; test assertions are not production security issues.
+        run: python -m bandit -r backend -x backend/myapp/tests.py
+
+      - name: Test
+        working-directory: backend
+        run: |
+          python manage.py check
+          # Do not let an empty/incomplete suite satisfy the assignment minimum.
+          python - <<'PY'
+          import os
+          import django
+          from django.conf import settings
+          from django.test.utils import get_runner
+
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
+          django.setup()
+          runner = get_runner(settings)(verbosity=0)
+          count = runner.build_suite().countTestCases()
+          if count < 2:
+              raise SystemExit(f"Expected at least 2 tests; discovered {count}.")
+          PY
+          python manage.py test --noinput --verbosity 2
+
+  deploy:
+    name: Deploy
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Tutorial deployment placeholder
+        run: |
+          echo "### Deployment not configured" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tests passed" >> "$GITHUB_STEP_SUMMARY"
