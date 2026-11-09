@@ -1,5 +1,6 @@
 from django.test import SimpleTestCase
 from django.urls import reverse
+from rest_framework.test import APISimpleTestCase
 
 
 class PageTests(SimpleTestCase):
@@ -29,3 +30,30 @@ class PageTests(SimpleTestCase):
         response = self.client.get("/page-that-does-not-exist/")
 
         self.assertEqual(response.status_code, 404)
+
+
+class HelloApiTests(APISimpleTestCase):
+    """Verify the public greeting contract through real URL routing and DRF."""
+
+    def test_anonymous_get_returns_greeting_json(self):
+        self.assertEqual(reverse("hello_api"), "/api/hello/")
+
+        response = self.client.get("/api/hello/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["Content-Type"], "application/json")
+        self.assertEqual(response.json(), {"message": "Hello World!"})
+
+    def test_post_is_not_allowed(self):
+        response = self.client.post("/api/hello/", {}, format="json")
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_other_write_methods_are_not_allowed(self):
+        for method in ("put", "patch", "delete"):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(
+                    "/api/hello/", {}, format="json"
+                )
+
+                self.assertEqual(response.status_code, 405)
