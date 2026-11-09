@@ -10,20 +10,33 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load local configuration without overriding deployment environment variables.
+load_dotenv(BASE_DIR.parent / '.env', override=False)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-k(daewi6)+0c+x4t@a#6ok(3!w+bdi&)nlh440ov4%syy*&h+)'
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+# Set a stable key through the environment for deployment or persistent sessions.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY is required when DEBUG is False.')
+    # Development only: restarting the process invalidates existing signed sessions.
+    SECRET_KEY = get_random_secret_key()
 
 ALLOWED_HOSTS = []
 
